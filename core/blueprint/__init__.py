@@ -209,17 +209,61 @@ class BlueprintMeta(type):
                 self.is_new = True
             self.initialize_instance(kwargs)
 
+        def serialize(self, selected_fields=None):
+            if selected_fields is None:
+                selected_fields = []
+            else:
+                selected_fields = list(selected_fields)
+            cls_dict: typing.Dict = self.__class__.__dict__
+            serialized: typing.Dict = {}
+
+            if not self.should_serialize():
+                return serialized
+            else:
+                for sk, sv in cls_dict.items():
+                    if isinstance(sv, Field):
+                        if selected_fields and sv.name not in selected_fields:
+                            continue
+                        sk_v = getattr(self, sk)
+
+                        # serialize each field according to sv.data_type and sv.multi
+                        data_type: typing.Any = sv.data_type
+                        multi: bool = sv.multi
+                        if multi:
+                            # should serialize each item in the value
+                            assert isinstance(sk_v, list)
+                            if isinstance(data_type, BlueprintMeta):
+                                serialized.update({
+                                    sk: [item.serialize() for item in sk_v]
+                                })
+                            else:
+                                serialized.update({
+                                    sk: [item for item in sk_v]
+                                })
+                        else:
+                            assert not isinstance(sk_v, list)
+                            if isinstance(data_type, BlueprintMeta):
+                                if sk_v.should_serialize():
+                                    serialized.update({sk: sk_v.serialize()})
+                            else:
+                                serialized.update({sk: sk_v})
+            return serialized
+
         class_dict_copy.update({
             'ID_NAME': '_id',
             'TS_NAME': '_ts',
             '__init__': init,
             'initialize_instance': initialize_instance,
+            'serialize': serialize,
         })
         cls = type.__new__(mcs, name, bases, class_dict_copy)
         return cls
 
 
 class Blueprint(metaclass=BlueprintMeta):
+    def should_serialize(self):
+        return True
+
     class Meta:
         id_template = ''
         is_top = False

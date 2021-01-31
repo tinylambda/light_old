@@ -1,3 +1,5 @@
+import typing
+
 from django.test import TestCase
 
 from core.blueprint import Field
@@ -78,12 +80,23 @@ class BlueprintTestCase(TestCase):
             class Meta:
                 id_template = '{_ts}'
 
+        class TestBlueprintRequiredFalseField(Blueprint):
+            field = Field(
+                verbose_name='Field Name',
+                data_type=str,
+                required=False
+            )
+
+            class Meta:
+                id_template = '{_ts}'
+
         self.TB_CLASS = TestBlueprint
         self.TB_CLASS_MUTABLE = TestBlueprintMutable
         self.TB_CLASS_MUTABLE_WITH_VALUES = TestBlueprintMutableWithValues
         self.TB_CLASS_MULTI_NO_DEFAULT = TestBlueprintMultiWithoutDefault
         self.TB_CLASS_NESTED = TestBlueprintNested
         self.TB_CLASS_REQUIRED_FIELD = TestBlueprintRequiredField
+        self.TB_CLASS_REQUIRED_FALSE_FIELD = TestBlueprintRequiredFalseField
 
     def test_blueprint_field_operation(self):
         tb = self.TB_CLASS()
@@ -224,4 +237,33 @@ class BlueprintTestCase(TestCase):
         with self.assertRaises(BlueprintTypeException):
             self.TB_CLASS_REQUIRED_FIELD()
 
+        # field required set to False
+        tb = self.TB_CLASS_REQUIRED_FALSE_FIELD()
+        self.assertIs(
+            tb.field, None, 'non-required field without setting value should be None'
+        )
+        tb.field = 100
+        self.assertEqual(tb.field, '100', 'do implicit cast')
+
+    def test_blueprint_serialize(self):
+        tb = self.TB_CLASS()
+        serialized = tb.serialize()
+        self.assertIsInstance(serialized, typing.Dict, 'serialized result of blueprint should be type of dict')
+
+        # is the value correct ? use the default value ''
+        self.assertEqual(serialized['field'], '', 'serialized value is not correct')
+
+        # now change the value of field, note the implicit value cast 1000 will be saved as '1000'
+        tb.field = 1000
+        serialized_2 = tb.serialize()
+        self.assertEqual(serialized_2['field'], '1000', 'serialized value is not correct')
+
+        # _ts and _id should remain the same
+        self.assertEqual(serialized_2['_ts'], serialized['_ts'], 'blueprint invalid state')
+        self.assertEqual(serialized_2['_id'], serialized['_id'], 'blueprint invalid state')
+
+        # test selected_fields arguments
+        serialized_3 = tb.serialize(selected_fields=['field', '_ts'])
+        self.assertIn('field', serialized_3, 'selected_fields argument not works')
+        self.assertNotIn('_id', serialized_3, 'selected_fields argument not works')
 
