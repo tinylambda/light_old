@@ -13,6 +13,7 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 
 from core.asgi_middleware import TokenAuthMiddlewareStack
 import chat.routing as chat_routing
+import core.routing as core_routing
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'light.settings')
 
@@ -20,7 +21,8 @@ application = ProtocolTypeRouter({
     'http': get_asgi_application(),
     'websocket': TokenAuthMiddlewareStack(
         URLRouter(
-            chat_routing.websocket_urlpatterns
+            chat_routing.websocket_urlpatterns +
+            core_routing.websocket_urlpatterns
         )
     )
 })

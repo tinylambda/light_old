@@ -27,7 +27,11 @@ async def simple_ws(
             f(*args)
 
     loop = asyncio.get_event_loop()
-    async with websockets.connect(uri, extra_headers=[]) as client_side_ws:
+    async with websockets.connect(
+            uri,
+            extra_headers=[
+                ('Cookie', 'csrftoken=9DWCWzfUyRtyYBbQJSiMhMTCNiR7ndzlu9FmlhPfiv8Sxqb5YhT7qaT8hJhWrbRw; '
+                 'sessionid=tn3464k1l3ykp9gi0u0fqokutgdh6bys')]) as client_side_ws:
         call_function(on_open)
         i = 0
         while True:
@@ -59,6 +63,7 @@ async def simple_ws(
                         break
             except Exception as e:
                 call_function(on_error, e)
+                break
 
 
 class Command(BaseCommand):
@@ -75,16 +80,18 @@ class Command(BaseCommand):
         q = asyncio.Queue()
         loop.add_reader(sys.stdin, get_stdin_data, q)
 
-        loop.run_until_complete(
-            simple_ws(
-                uri=ws_url,
-                on_open=lambda: print('connected'),
-                on_message=lambda msg: print('Received: ', msg),
-                on_error=lambda e: print('Error: ', e),
-                q=q,
+        try:
+            loop.run_until_complete(
+                simple_ws(
+                    uri=ws_url,
+                    on_open=lambda: print('connected'),
+                    on_message=lambda msg: print('Received: ', msg),
+                    on_error=lambda e: print('Error: ', e),
+                    q=q,
+                )
             )
-        )
-
+        except KeyboardInterrupt:
+            pass
         self.stdout.write(self.style.SUCCESS("Done"))
 
 

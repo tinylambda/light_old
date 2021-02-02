@@ -83,9 +83,8 @@ class Field:
             return self
         value = getattr(instance, self.internal_name, None)
         if value is None:
-            if isinstance(self.default, (typing.MutableSequence, typing.MutableSet, typing.MutableMapping)):
-                value = copy.copy(self.default)
-            elif callable(self.default):
+            # use default value
+            if callable(self.default):
                 value = self.default()
             else:
                 value = self.default
@@ -170,12 +169,21 @@ class BlueprintMeta(type):
                         # set attr value (through descriptor)
                         setattr(self, sk, v_deserialized)
                     else:
+                        # user not provide value for the field, use default value to initialize the field if possible
                         # default value for multi field should be []
                         if sv.multi and sv.default is None:
                             sv.default = []
+                        # if data type of field is Blueprint, create a new blueprint instance as default value
+                        if sv.data_type and isinstance(sv.data_type, BlueprintMeta):
+                            if sv.default and isinstance(sv.default, Blueprint):
+                                sv.default = copy.copy(sv.default)
 
-                        # will get default value if any
+                        # will get default value if any,
+                        # and set instance field value to default (force check and clean, create new instance if needed)
                         sk_v = getattr(self, sk)
+
+                        # after initialize, value of every field should be in valid state (pass descriptor's check)
+                        # check_and_clean_if_possible
                         setattr(self, sk, sk_v)
 
             # generate id if needed
@@ -202,9 +210,11 @@ class BlueprintMeta(type):
                                                      f'but no value provided and no default value set')
 
         def init(self, **kwargs):
-            self.parent: typing.Any = None
-            self.id_context: typing.Dict = {}
-            self.is_new: bool = False
+            self.kwargs = kwargs  # used to copy a new blueprint instance
+            self.parent = None
+            self.id_context = {}
+            self.is_new = False
+
             if self.ID_NAME not in kwargs:
                 self.is_new = True
             self.initialize_instance(kwargs)
@@ -237,6 +247,7 @@ class BlueprintMeta(type):
                                     sk: [item.serialize() for item in sk_v]
                                 })
                             else:
+                                # just create a new list with the same content
                                 serialized.update({
                                     sk: [item for item in sk_v]
                                 })
@@ -249,20 +260,25 @@ class BlueprintMeta(type):
                                 serialized.update({sk: sk_v})
             return serialized
 
+        def should_serialize(self):
+            return True
+
         class_dict_copy.update({
             'ID_NAME': '_id',
             'TS_NAME': '_ts',
             '__init__': init,
             'initialize_instance': initialize_instance,
             'serialize': serialize,
+            'should_serialize': should_serialize,
         })
         cls = type.__new__(mcs, name, bases, class_dict_copy)
         return cls
 
 
 class Blueprint(metaclass=BlueprintMeta):
-    def should_serialize(self):
-        return True
+    def __copy__(self):
+        instance = self.__class__(**self.kwargs)
+        return instance
 
     class Meta:
         id_template = ''

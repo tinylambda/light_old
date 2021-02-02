@@ -267,3 +267,12 @@ class BlueprintTestCase(TestCase):
         self.assertIn('field', serialized_3, 'selected_fields argument not works')
         self.assertNotIn('_id', serialized_3, 'selected_fields argument not works')
 
+    def test_blueprint_default_value(self):
+        tb1 = self.TB_CLASS_MUTABLE()
+        tb2 = self.TB_CLASS_MUTABLE()
+        self.assertIsNot(tb1.field, tb2.field, 'should not be the same list instance')
+
+        tb1 = self.TB_CLASS_NESTED()
+        tb2 = self.TB_CLASS_NESTED()
+        self.assertIsNot(tb1.field, tb2.field, 'should not be the same blueprint instance')
+
