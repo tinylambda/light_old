@@ -5,6 +5,8 @@ import signal
 import typing
 import asyncio
 import websockets
+import urllib
+import urllib.parse
 
 from django.core.management.base import BaseCommand, CommandError
 
@@ -43,7 +45,10 @@ async def simple_ws(
                 await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
                 if user_input_task.done():
                     user_input = user_input_task.result()
-                    data = json.dumps({'message': user_input})
+                    user_input = user_input.strip()
+                    data_dict = dict(urllib.parse.parse_qsl(user_input))
+                    print('You enter: ', data_dict)
+                    data = json.dumps(data_dict)
                     await client_side_ws.send(data)
 
                 msg = None
